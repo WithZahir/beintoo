@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 IMG = ROOT / "assets" / "img"
-VERSION = "10"  # bump to bust CSS/JS caches
+VERSION = "15"  # bump to bust CSS/JS caches
 
 # =====================================================================
 # DATA
@@ -322,9 +322,12 @@ X_PATHS = ("M835.75 99.75H868.25L965.75 1.5H935.75Z", "M838.25 1.5H872L899.5 29.
 
 def logo(light: bool = False, sub: bool = True) -> str:
     xs = "".join(f'<path d="{d}" fill="url(#bxg)"/>' for d in X_PATHS)
-    s = '<small>MARKETING SOLUTIONS</small>' if sub else ""
-    return (f'<span class="logo{" logo--light" if light else ""}"><svg viewBox="0 0 968 102" role="img" aria-label="BEINTOX">'
-            f'<path d="{LOGO_PATHS}" fill="currentColor"/>{xs}</svg>{s}</span>')
+    # Subtitle lives inside the same SVG and is stretched to the wordmark's exact width,
+    # so it always lines up with the B on the left and the X on the right.
+    t = ('<text class="logo__sub" x="2" y="178" textLength="964" lengthAdjust="spacing">MARKETING SOLUTIONS</text>' if sub else "")
+    h = 182 if sub else 102
+    return (f'<span class="logo{" logo--light" if light else ""}"><svg viewBox="0 0 968 {h}" role="img" aria-label="BEINTOX Marketing Solutions">'
+            f'<path d="{LOGO_PATHS}" fill="currentColor"/>{xs}{t}</svg></span>')
 
 
 GRAD_DEFS = ('<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'
@@ -390,8 +393,9 @@ def layout(page: str, title: str, desc: str, body: str, schema: dict | None = No
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Montserrat:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Instrument+Serif:ital@1&family=Montserrat:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="assets/css/style.css?v={VERSION}">
+<script>document.documentElement.classList.add("js")</script>
 {ld}
 </head>
 <body>
@@ -482,14 +486,35 @@ def gallery(items, folder, cls="gallery") -> str:
 # PAGES
 # =====================================================================
 
-def steps_html() -> str:
+def steps_html(steps=None) -> str:
     return '<div class="steps">' + "".join(
-        f'<div class="step"><span class="step__n">{i + 1}</span><h3 class="h3">{t}</h3><p>{d}</p></div>' for i, (t, d) in enumerate(STEPS)) + "</div>"
+        f'<div class="step rv" style="--i:{i}"><span class="step__n">{i + 1:02d}</span><span class="step__k">Step {i + 1}</span><h3 class="h3">{t}</h3><p>{d}</p></div>'
+        for i, (t, d) in enumerate(steps or STEPS)) + "</div>"
 
 
 def why_html() -> str:
-    return '<div class="values values--6">' + "".join(
-        f'<div><span class="card__n">{i + 1:02d}</span><h3 class="h3">{E(t)}</h3><p>{E(d)}</p></div>' for i, (t, d) in enumerate(WHY)) + "</div>"
+    return '<div class="feats">' + "".join(
+        f'<div class="feat rv" style="--i:{i}"><span class="feat__n">{i + 1:02d}</span><h3 class="h3">{E(t)}</h3><p>{E(d)}</p><span class="feat__bg" aria-hidden="true">{i + 1:02d}</span></div>'
+        for i, (t, d) in enumerate(WHY)) + "</div>"
+
+
+BELIEFS = [
+    ("Be seen", "Visibility is earned with design that stops the scroll and media placed where your customers already are.",
+     '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3.2"/>'),
+    ("Be understood", "A clear position and a simple message, so people know in seconds what you offer and why it matters.",
+     '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/>'),
+    ("Be remembered", "Consistency builds memory. One look, one voice, repeated everywhere until your brand is the one they choose.",
+     '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'),
+]
+
+
+def beliefs_html() -> str:
+    out = []
+    for i, (t, d, ic) in enumerate(BELIEFS):
+        out.append(f'''<article class="belief belief--{i + 1} rv" style="--i:{i}">
+  <div class="belief__top"><span>{i + 1:02d}</span><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">{ic}</svg></i></div>
+  <h3>{E(t)}</h3><p>{E(d)}</p></article>''')
+    return '<div class="beliefs">' + "".join(out) + "</div>"
 
 
 def plans_html() -> str:
@@ -503,14 +528,144 @@ def faq_html() -> str:
     return '<div class="faq">' + "".join(f"<details><summary>{E(q)}</summary><p>{E(a)}</p></details>" for q, a in FAQ) + "</div>"
 
 
+# Client logos shown in the strip. Brands with a case study link to it; the rest are logo-only.
+# size: "s" = wide wordmark, "l" = tall / round mark (gets more height so it reads at the same weight)
+EXTRA_CLIENTS = [("Velvet Crunch", "logos/velvetcrunch.png", "xl"), ("Leatherifyy", "logos/leatherifyy.png", "l")]
+LOGO_SIZE = {"tomgai": "s", "twenty-two": "s", "khyber-sajji": "l", "shehar-e-lazzat": "l"}
+
+# Testimonials — PLACEHOLDER copy, replace with real client quotes before launch.
+TESTIMONIALS = [
+    ("Ahmed R.", "Founder, restaurant brand", "They didn't just design a logo, they gave us a brand our customers recognise from across the street. The launch campaign had people queuing before we opened."),
+    ("Sana K.", "Owner, bakery & café", "Every piece, from the gift boxes to the Instagram feed, finally looks like it belongs to one brand. Our regulars noticed the difference straight away."),
+    ("Bilal M.", "Director, fast-food chain", "Clear process, quick replies and a team that actually understood our customers. The packaging range alone paid for the project."),
+    ("Hira A.", "Co-founder, D2C snack brand", "BEINTOX handled strategy, design and our monthly content. One team, one voice. It's made growing the brand so much easier."),
+    ("Usman T.", "Founder, leather goods", "Sharp, modern identity and a website that converts. They pushed us to define who we're for before touching a single colour."),
+    ("Maryam S.", "Marketing lead, retail", "Our ads finally look premium and perform better. Monthly reports are clear, and we always know what's coming next."),
+]
+
+
 def logo_marquee() -> str:
-    one = "".join(f'<a href="portfolio.html#{c["slug"]}" aria-label="{E(c["name"])}">{img(c["logo"], c["name"] + " logo", eager=True)}</a>' for c in CASES)
+    items = [(f'portfolio.html#{c["slug"]}', c["name"], c["logo"], LOGO_SIZE.get(c["slug"], "s")) for c in CASES]
+    items += [(None, n, path, size) for n, path, size in EXTRA_CLIENTS]
+    one = "".join(
+        f'<a href="{h}" class="logo-{sz}" aria-label="{E(n)}">{img(p, n + " logo", eager=True)}</a>' if h else
+        f'<span class="logo-{sz}" role="img" aria-label="{E(n)}">{img(p, n + " logo", eager=True)}</span>'
+        for h, n, p, sz in items)
     half = one * 2
-    dup = half.replace("<a ", '<a tabindex="-1" aria-hidden="true" ')
+    dup = half.replace("<a ", '<a tabindex="-1" aria-hidden="true" ').replace('role="img" ', 'aria-hidden="true" ')
     return f'''<section class="clients" aria-label="Clients"><div class="wrap">
   <span class="clients__label">Brands we've built</span>
   <div class="marquee"><div class="marquee__track">{half}{dup}</div></div>
 </div></section>'''
+
+
+def stats_band() -> str:
+    """Dark band under the logo strip: copy left, four counting numbers right."""
+    made = sum(case_counts(c)["posts"] + case_counts(c)["applications"] for c in CASES)
+    kpis = [("11", "", "", "Services, one team"),
+            (str(len(CASES)), "", "", "Complete brand systems"),
+            (str(made), "+", "", "Creatives &amp; touchpoints"),
+            ("6", "wk", "3–", "Typical identity project")]
+    cells = "".join(
+        f'<div class="kpi rv" style="--i:{i}"><b>{pre}<span data-count="{n}">{n}</span><sup>{suf}</sup></b><span>{label}</span></div>'
+        for i, (n, suf, pre, label) in enumerate(kpis))
+    pills = "".join(f'<span>{E(x[1].split(" &")[0].replace(" (IPO)", ""))}</span>' for x in SERVICES[:8])
+    return f'''<section class="kband"><div class="wrap">
+  <div>
+    <span class="eyebrow"><b>—</b> Strategy · Branding · Design · Marketing</span>
+    <h2 class="h2">The name is step one. <em>Now build the brand.</em></h2>
+    <p class="lead">One team takes your brand from the first idea to the shelf and the feed: strategy, identity, packaging, content, ads and websites.</p>
+    <div class="kband__pills">{pills}</div>
+    <a class="btn btn--gold" href="services.html">Explore our services {ARROW}</a>
+  </div>
+  <div class="kpis">{cells}</div>
+</div></section>'''
+
+
+# Service cards on the home page: colour + decorative shape per service.
+SVC_LOOK = {
+    "identity": ("#c0602f", "#4d1d0c", "rings"),
+    "social": ("#33479a", "#0d1440", "tiles"),
+    "packaging": ("#2f7a6e", "#123630", "box"),
+    "ads": ("#7a3466", "#260b21", "bars"),
+    "web": ("#55504a", "#151311", "browser"),
+    "photo": ("#9a2533", "#33080f", "lens"),
+    "strategy": ("#a57a34", "#33230b", "arcs"),
+}
+SHAPES = {
+    "rings": '<circle class="o" cx="110" cy="100" r="86"/><circle class="o" cx="110" cy="100" r="56"/><circle class="a" cx="110" cy="100" r="26"/>',
+    "tiles": '<rect x="20" y="20" width="74" height="74" rx="14" class="o"/><rect x="106" y="20" width="74" height="74" rx="14" class="o"/><rect x="20" y="106" width="74" height="74" rx="14" class="o"/><rect class="a" x="106" y="106" width="74" height="74" rx="14"/>',
+    "box": '<path class="o" d="M100 18 172 58v84l-72 40-72-40V58z"/><path class="o" d="M28 58l72 40 72-40M100 98v84"/><path class="a" d="M100 98l72-40v84l-72 40z"/>',
+    "bars": '<rect class="o" x="24" y="120" width="30" height="60" rx="8"/><rect class="o" x="66" y="88" width="30" height="92" rx="8"/><rect class="o" x="108" y="54" width="30" height="126" rx="8"/><rect class="a" x="150" y="20" width="30" height="160" rx="8"/>',
+    "browser": '<rect class="o" x="14" y="30" width="172" height="130" rx="14"/><path class="o" d="M14 58h172"/><rect class="a" x="32" y="76" width="80" height="66" rx="8"/><path class="o" d="M126 82h42M126 100h42M126 118h28"/>',
+    "lens": '<circle class="o" cx="100" cy="100" r="84"/><path class="o" d="M100 16l44 72M184 100l-84 0M144 172l-44-72M56 172l44-72M16 100h84M56 28l44 72"/><circle class="a" cx="100" cy="100" r="34"/>',
+    "arcs": '<circle class="a" cx="104" cy="100" r="84"/><path class="o" d="M26 66c48 26 108 26 156 0M26 134c48-26 108-26 156 0"/>',
+    "x": '<path class="a" d="M30 176h34L176 24h-34z"/><path class="o" d="M34 24h36l32 32-20 20zM118 120l20-20 46 76h-36z"/>',
+}
+
+
+def svc_feature(sid: str, i: int) -> str:
+    s = svc_by_id(sid)
+    c1, c2, shape = SVC_LOOK[sid]
+    group = next(g[0] for g in GROUPS if sid in g[2])
+    picks = []
+    for t in s[4]:  # deliverable pills that fit on one line
+        if len(picks) < 2 and sum(len(x) for x in picks) + len(t) <= 30:
+            picks.append(t)
+    tags = "".join(f"<span>{E(t)}</span>" for t in picks)
+    return f'''<a class="svcx rv" href="services.html#{sid}" style="--c1:{c1};--c2:{c2};--i:{i}">
+  <div class="svcx__top"><span>Service {svc_num(sid)}</span><span>{group}</span></div>
+  <svg class="svcx__art" viewBox="0 0 200 200" aria-hidden="true">{SHAPES[shape]}</svg>
+  <div class="svcx__body"><h3>{E(s[1])}</h3><p>{E(s[2])}</p><div class="svcx__tags">{tags}</div></div>
+  <span class="svcx__go" aria-hidden="true">{ARROW}</span>
+</a>'''
+
+
+REEL_LINE = {
+    "tomgai": "A bamboo-stroke wordmark and a chef mascot for a Chinese & Thai kitchen.",
+    "twenty-two": "One monogram for two cravings: burgers and pizza.",
+    "khyber-sajji": "A mascot in a Peshawari cap launched the brand before the doors opened.",
+    "shehar-e-lazzat": "A navy-and-gold bakery brand, crowned by a croissant.",
+}
+
+
+def testimonials() -> str:
+    stars = '<span class="tm__stars" aria-label="5 out of 5">★★★★★</span>'
+
+    def cards(hidden: bool) -> str:
+        h = ' aria-hidden="true"' if hidden else ""
+        return "".join(
+            f'''<figure class="tm"{h}>{stars}<blockquote>“{E(q)}”</blockquote>
+  <figcaption><span class="tm__av">{"".join(w[0] for w in name.split()[:2])}</span><span><b>{E(name)}</b><small>{E(role)}</small></span></figcaption></figure>'''
+            for name, role, q in TESTIMONIALS)
+    return f'''<section class="sec tms"><div class="wrap">
+  {head_block("<b>03</b> Testimonials", "In our clients' <em>own words.</em>", "Restaurants, bakeries, retail and D2C brands. Here's what working with one team feels like.")}
+</div>
+<div class="reel reel--tm" aria-label="Client testimonials"><div class="reel__track">{cards(False)}{cards(True)}</div></div>
+</section>'''
+
+
+def brand_reel() -> str:
+    """Moving row of mixed cards: a wide case card + a portrait feed post for every brand."""
+    first_post = {c["slug"]: next(items for _a, _b, _c, _d, kind, items in c["sections"] if kind == "posts")[0] for c in CASES}
+
+    def cards(hidden: bool) -> str:
+        out = []
+        attrs = ' tabindex="-1" aria-hidden="true"' if hidden else ""
+        for c in CASES:
+            folder = c["cover"].split("/")[0]
+            tags = "".join(f'<span>{E(t)}</span>' for t in c["tags"][:3])
+            line = REEL_LINE[c["slug"]]
+            out.append(f'''<a class="rc rc--case" href="case-study-{c["slug"]}.html" style="--brand:{c["brand"]}"{attrs}>
+  {img(c["cover"], "" if hidden else f'{c["name"]} brand work by BEINTOX')}
+  <span class="rc__top"><span>{E(c["name"])}</span><span>{E(c["sector"].split(" · ")[0])}</span></span>
+  <span class="rc__body"><b>{E(line)}</b><span class="rc__tags">{tags}</span></span></a>''')
+            key, cap = first_post[c["slug"]].split(":", 1)
+            out.append(f'''<a class="rc rc--post" href="portfolio.html#{c["slug"]}" style="--brand:{c["brand"]}"{attrs}>
+  {img(f"{folder}/{key}", "" if hidden else f'{c["name"]}: {cap}')}
+  <span class="rc__chip">{E(c["name"])} · Social</span></a>''')
+        return "".join(out)
+    return f'<div class="reel" aria-label="Brands we have built"><div class="reel__track">{cards(False)}{cards(True)}</div></div>'
 
 
 # Hero creative wall: three columns scrolling in alternating directions. Mixed portrait posts and landscape mockups.
@@ -551,24 +706,33 @@ def page_home() -> str:
     <h1 class="h1">Your brand story <em>starts here.</em></h1>
     <p class="lead">Strategy, branding, design and marketing under one roof, for businesses that want to be noticed, trusted and chosen.</p>
     <div class="btns"><a class="btn btn--gold" href="contact.html">Request a proposal {ARROW}</a><a class="btn btn--ghost" href="portfolio.html">View portfolio</a></div>
-    <dl class="hero__facts"><div><dt>11</dt><dd>Services, one team</dd></div><div><dt>4</dt><dd>Complete brand systems</dd></div><div><dt>3–6 wk</dt><dd>Typical identity project</dd></div></dl>
   </div>
   {mosaic_html}
 </div></section>
 
 {logo_marquee()}
 
+{stats_band()}
+
 <section class="sec"><div class="wrap">
   {head_block("<b>01</b> What we do", "Eleven services. <em>One clear voice.</em>", "Strategy, creativity and marketing under one roof, so your brand looks, sounds and feels the same everywhere.")}
-  <div class="grid g4">{"".join(svc_card(s, num=False) for s in featured)}
-    <a class="card card--dark svc-card" href="services.html"><div><span class="card__n">+4 more</span><h3 class="h3">Registration, design, video &amp; audits.</h3></div><span class="card__go">All services {ARROW}</span></a>
+  <div class="svcx-grid">{"".join(svc_feature(s, i) for i, s in enumerate(featured))}
+    <a class="svcx svcx--more rv" href="services.html" style="--i:7">
+      <div class="svcx__top"><span>+4 more</span><span>All services</span></div>
+      <svg class="svcx__art" viewBox="0 0 200 200" aria-hidden="true">{SHAPES["x"]}</svg>
+      <div class="svcx__body"><h3>Registration, design, video &amp; audits.</h3><p>See all eleven services, with examples from our work.</p></div>
+      <span class="svcx__go" aria-hidden="true">{ARROW}</span>
+    </a>
   </div>
 </div></section>
 
 <section class="sec sec--white bt"><div class="wrap">
   {head_block("<b>02</b> Portfolio", "Brands we've <em>built.</em>", "Complete brand systems, from the logo to the packaging, the storefront and the feed.", f'<div class="btns" style="gap:20px"><a class="link" href="case-studies.html">Read the case studies {ARROW}</a><a class="link" href="portfolio.html">Open the portfolio {ARROW}</a></div>')}
-  <div class="grid g2">{"".join(case_card(c) for c in CASES)}</div>
-</div></section>
+</div>
+{brand_reel()}
+</section>
+
+{testimonials()}
 
 {cta_band()}
 '''
@@ -577,20 +741,22 @@ def page_home() -> str:
                   body, schema)
 
 
-def svc_tile(sid: str) -> str:
+def svc_tile(sid: str, i: int = 0) -> str:
     s = svc_by_id(sid)
     m = SVC_IMG.get(sid)
     m = m[0] if isinstance(m, list) else m
-    see = ""
+    group = next(g[1] for g in GROUPS if sid in g[2])
     if s[5]:
         c = CASE[s[5]]
         see = f'<a class="svc3__see" href="case-study-{c["slug"]}.html">See it in {E(c["name"])} {ARROW}</a>'
+    else:
+        see = f'<a class="svc3__see" href="contact.html">Request a proposal {ARROW}</a>'
     items = "".join(f"<li>{E(d)}</li>" for d in s[4])
-    return f'''<article class="svc3" id="{s[0]}">
-  <div class="svc3__img">{img(m, f"{s[1]}: example from our work")}</div>
+    return f'''<article class="svc3 rv" id="{s[0]}" style="--i:{i % 3}">
+  <div class="svc3__img">{img(m, f"{s[1]}: example from our work")}
+    <span class="svc3__num">{svc_num(s[0])}</span><span class="svc3__grp">{E(group)}</span></div>
   <div class="svc3__body">
-    <span class="card__n">{svc_num(s[0])}</span>
-    <h3 class="h3">{E(s[1])}</h3>
+    <div class="svc3__head"><h3 class="h3">{E(s[1])}</h3><span class="svc3__arrow" aria-hidden="true">{ARROW}</span></div>
     <p>{E(s[3])}</p>
     <ul class="svc3__list">{items}</ul>
     {see}
@@ -599,7 +765,7 @@ def svc_tile(sid: str) -> str:
 
 
 def page_services() -> str:
-    tiles = "".join(svc_tile(x[0]) for x in SERVICES)
+    tiles = "".join(svc_tile(x[0], i) for i, x in enumerate(SERVICES))
     cta = f'''<a class="svc3 svc3--cta" href="contact.html"><div class="svc3__body"><span class="card__n">Not sure where to start?</span>
   <h3 class="h3">Tell us your goal. We'll recommend the smallest set of services that gets you there.</h3>
   <span class="svc3__see">Request a proposal {ARROW}</span></div></a>'''
@@ -816,9 +982,13 @@ def team_html() -> str:
     members = []
     for name, r, ph in TEAM:
         face = img(ph, f"{name}, {r} at BEINTOX") if ph else f'<span class="member__ini" aria-hidden="true">{"".join(w[0] for w in name.split()[:2])}</span>'
-        members.append(f'<li class="member"><div class="member__ph">{face}</div><b>{E(name)}</b><span>{E(r)}</span></li>')
+        members.append(f'<li class="member rv" tabindex="0" style="--i:{len(members)}"><div class="member__ph">{face}</div><b>{E(name)}</b><span>{E(r)}</span></li>')
     return f'''<div class="founder">
-  <div class="founder__ph">{img(photo, f"{n}, {role} of BEINTOX")}</div>
+  <div class="founder__frame">
+    <div class="founder__ring" aria-hidden="true"></div>
+    <div class="founder__ph" tabindex="0" data-tilt>{img(photo, f"{n}, {role} of BEINTOX")}<span class="founder__shine" aria-hidden="true"></span></div>
+    <span class="founder__badge"><i></i>{E(role)}</span>
+  </div>
   <div class="founder__txt"><span class="eyebrow"><b>Leadership</b></span>
     <blockquote class="h2 mt-s">“{E(bio)}”</blockquote>
     <p class="founder__name"><b>{E(n)}</b><span>{E(role)}</span></p>
@@ -851,11 +1021,7 @@ def page_about() -> str:
 
 <section class="sec"><div class="wrap">
   {head_block("<b>02</b> What we believe", "Be seen. Be understood. <em>Be remembered.</em>")}
-  <div class="values">
-    <div><span class="card__n">01</span><h3 class="h3">Be seen</h3><p>Visibility is earned with design that stops the scroll and media placed where your customers already are.</p></div>
-    <div><span class="card__n">02</span><h3 class="h3">Be understood</h3><p>A clear position and a simple message, so people know in seconds what you offer and why it matters.</p></div>
-    <div><span class="card__n">03</span><h3 class="h3">Be remembered</h3><p>Consistency builds memory. One look, one voice, repeated everywhere until your brand is the one they choose.</p></div>
-  </div>
+  {beliefs_html()}
 </div></section>
 
 <section class="sec sec--white bt"><div class="wrap">
@@ -883,12 +1049,10 @@ def page_about() -> str:
 
 <section class="sec"><div class="wrap">
   {head_block("<b>06</b> How we work", "One team, one process, <em>no handoffs.</em>")}
-  <div class="steps">
-    <div class="step"><span class="step__n">1</span><h3 class="h3">Discover</h3><p>Business, audience and competitor research to find what makes you worth choosing.</p></div>
-    <div class="step"><span class="step__n">2</span><h3 class="h3">Define</h3><p>Positioning, personality and messaging: the brief every design decision answers to.</p></div>
-    <div class="step"><span class="step__n">3</span><h3 class="h3">Design</h3><p>Identity, guidelines, packaging and content built as one connected system.</p></div>
-    <div class="step"><span class="step__n">4</span><h3 class="h3">Grow</h3><p>Launch, measure and refine across social, ads and web.</p></div>
-  </div>
+  {steps_html([("Discover", "Business, audience and competitor research to find what makes you worth choosing."),
+                ("Define", "Positioning, personality and messaging: the brief every design decision answers to."),
+                ("Design", "Identity, guidelines, packaging and content built as one connected system."),
+                ("Grow", "Launch, measure and refine across social, ads and web.")])}
 </div></section>
 {cta_band()}
 '''

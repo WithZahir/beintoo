@@ -67,5 +67,48 @@
     });
   }
 
+  /* Reveal cards once as they scroll in, and count numbers up from 0 */
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reveals = $$(".rv"), counters = $$("[data-count]");
+  const count = (el) => {
+    const end = +el.dataset.count, t0 = performance.now(), dur = 1800;
+    const tick = (now) => {
+      const p = Math.min((now - t0) / dur, 1);
+      el.textContent = Math.round(end * (1 - Math.pow(1 - p, 4)));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  if (still || !("IntersectionObserver" in window)) {
+    reveals.forEach((el) => el.classList.add("in"));
+  } else {
+    counters.forEach((el) => (el.textContent = "0"));
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      io.unobserve(e.target);
+      if (e.target.matches("[data-count]")) count(e.target); else e.target.classList.add("in");
+    }), { threshold: 0.2 });
+    reveals.forEach((el) => io.observe(el));
+    counters.forEach((el) => io.observe(el));
+  }
+
+  /* 3D tilt + moving light on [data-tilt] (founder portrait) */
+  if (!still && matchMedia("(hover: hover)").matches) {
+    $$("[data-tilt]").forEach((el) => {
+      el.addEventListener("pointermove", (e) => {
+        const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+        el.classList.add("is-tilting");
+        el.style.setProperty("--ry", `${(x - 0.5) * 12}deg`);
+        el.style.setProperty("--rx", `${(0.5 - y) * 12}deg`);
+        el.style.setProperty("--mx", `${x * 100}%`);
+        el.style.setProperty("--my", `${y * 100}%`);
+      });
+      el.addEventListener("pointerleave", () => {
+        el.classList.remove("is-tilting");
+        el.style.setProperty("--rx", "0deg"); el.style.setProperty("--ry", "0deg");
+      });
+    });
+  }
+
   const y = $("[data-year]"); if (y) y.textContent = new Date().getFullYear();
 })();
