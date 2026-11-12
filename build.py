@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 IMG = ROOT / "assets" / "img"
-VERSION = "15"  # bump to bust CSS/JS caches
+VERSION = "16"  # bump to bust CSS/JS caches
 
 # =====================================================================
 # DATA
